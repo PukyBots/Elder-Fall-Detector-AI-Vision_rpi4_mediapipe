@@ -144,6 +144,30 @@ A window titled **"Fall Detector"** will appear showing the camera feed with pos
 
 ---
 
+## 🔄 Auto-Start on Boot
+
+To make the fall detector start automatically every time the Pi powers on:
+
+```bash
+sudo cp ~/fall-exterm/fall-detector.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable fall-detector.service
+```
+
+That's it. The fall detector will now launch automatically after the desktop loads on every boot.
+
+**Useful commands:**
+
+| Command | Description |
+|---|---|
+| `sudo systemctl status fall-detector` | Check if it's running |
+| `sudo systemctl stop fall-detector` | Stop the fall detector |
+| `sudo systemctl start fall-detector` | Start it manually |
+| `sudo systemctl disable fall-detector` | Disable auto-start |
+| `journalctl -u fall-detector -f` | View live logs |
+
+---
+
 ## 🔧 Troubleshooting
 
 | Problem | Solution |
