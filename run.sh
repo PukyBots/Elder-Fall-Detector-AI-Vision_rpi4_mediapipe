@@ -4,7 +4,7 @@
 # ==========================================
 
 # Portability: Adjust this if your hailo-rpi5-examples folder is elsewhere
-HAILO_EXAMPLES_DIR="$HOME/tce/hailo-rpi5-examples"
+HAILO_EXAMPLES_DIR="$HOME/hailo-rpi5-examples"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Initializing Hailo AI Environment..."
@@ -35,10 +35,10 @@ export HAILO_ENV_FILE="$HAILO_EXAMPLES_DIR/.env"
 export TAPPAS_POST_PROC_DIR="/usr/lib/aarch64-linux-gnu/hailo/tappas/post_processes"
 export XAUTHORITY="$HOME/.Xauthority"
 
-# 5. Navigate to hailo-apps so local paths work correctly
-cd "$HAILO_EXAMPLES_DIR/hailo-apps"
+# 5. Navigate to project root so local paths work correctly
+cd "$HAILO_EXAMPLES_DIR"
 
 echo "Starting Fall Detector Pipeline on USB Camera..."
 
 # 6. Run the fall detector script
-python "$SCRIPT_DIR/room.py" --input usb --width 640 --height 480
+python "$SCRIPT_DIR/room.py" --input usb --hef-path /usr/share/hailo-models/yolov8s_pose_h8l_pi.hef

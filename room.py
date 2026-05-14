@@ -35,14 +35,14 @@ from collections import deque
 
 import hailo
 
-from hailo_apps.python.pipeline_apps.pose_estimation.pose_estimation_pipeline import (
+from hailo_apps.hailo_app_python.apps.pose_estimation.pose_estimation_pipeline import (
     GStreamerPoseEstimationApp,
 )
-from hailo_apps.python.core.common.buffer_utils import (
+from hailo_apps.hailo_app_python.core.common.buffer_utils import (
     get_caps_from_pad,
     get_numpy_from_buffer,
 )
-from hailo_apps.python.core.gstreamer.gstreamer_app import app_callback_class
+from hailo_apps.hailo_app_python.core.gstreamer.gstreamer_app import app_callback_class
 
 # ─── COCO 17-keypoint indices ───
 NOSE = 0; L_EYE = 1; R_EYE = 2; L_EAR = 3; R_EAR = 4
@@ -128,7 +128,7 @@ def send_fall_alert():
 
 
 # ─── Speaker Alarm ───
-ALARM_WAV = "/home/tce/tce/melroy-fall-ditector/alarm.wav"
+ALARM_WAV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "alarm.wav")
 ALARM_COOLDOWN = 30  # Don't play alarm more than once per 30 seconds
 _last_alarm_time = 0
 _alarm_process = None
@@ -146,9 +146,9 @@ def play_alarm():
     _last_alarm_time = now
     try:
         _alarm_process = subprocess.Popen(
-            ["aplay", ALARM_WAV],
+            ["aplay", "-D", "plughw:1,0", ALARM_WAV],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
         print("[ALARM] Playing alarm sound!")
     except Exception as e:
@@ -444,19 +444,19 @@ class FallDetectorCallback(app_callback_class):
 
 
 # ─── Main Callback (hailo-apps API: element, buffer, user_data) ───
-def app_callback(element, buffer, user_data):
+def app_callback(pad, info, user_data):
     """
-    GStreamer probe callback — invoked per-frame by the hailo-apps pipeline.
-    Signature: (element, buffer, user_data) — matches hailo-apps >= v26.x
+    GStreamer pad probe callback — invoked per-frame by the hailo-apps pipeline.
+    Signature: (pad, info, user_data) — matches hailo-apps v25.x pad probe API
     """
+    buffer = info.get_buffer()
     if buffer is None:
-        return
+        return Gst.PadProbeReturn.OK
 
     # Frame count is auto-incremented by the framework wrapper
     frame_count = user_data.get_count()
 
-    # Get video dimensions from the element's source pad
-    pad = element.get_static_pad("src")
+    # Get video dimensions from the pad caps
     format, width, height = get_caps_from_pad(pad)
 
     frame = None
@@ -538,7 +538,7 @@ def app_callback(element, buffer, user_data):
         print(f"[ALERT] FALL DETECTED! Frame {frame_count}")
         send_fall_alert()
         play_alarm()
-    return
+    return Gst.PadProbeReturn.OK
 
 
 if __name__ == "__main__":
@@ -550,11 +550,16 @@ if __name__ == "__main__":
 
     class CustomPoseApp(GStreamerPoseEstimationApp):
         def get_pipeline_string(self):
-            # Use our custom compiled .so with proper threshold
-            self.post_process_so = "/home/tce/tce/hailo-rpi5-examples/hailo-apps/hailo_apps/postprocess/build/cpp/libyolov8pose_postprocess.so"
+            # Use system-installed tappas-core 5.1.0 postprocess .so
+            self.post_process_so = "/usr/lib/aarch64-linux-gnu/hailo/tappas/post_processes/libyolov8pose_post.so"
+            # System .so exports 'filter', not 'filter_letterbox'
+            self.post_process_function = "filter"
             # Hide the raw GStreamer window — only our custom Fall Detector window shows
             self.video_sink = "fakesink"
-            return super().get_pipeline_string()
+            pipeline = super().get_pipeline_string()
+            # Disable letterboxing since system .so 'filter' doesn't correct for it
+            pipeline = pipeline.replace("use-letterbox=true", "use-letterbox=false")
+            return pipeline
 
     user_data = FallDetectorCallback()
     app = CustomPoseApp(app_callback, user_data)
