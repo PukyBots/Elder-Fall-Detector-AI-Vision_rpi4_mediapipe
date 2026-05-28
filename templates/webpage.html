@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Elder Care Setup</title>
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <style>
+
+        body {
+            font-family: Arial;
+            background: #f2f2f2;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: auto;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            background: #00aa66;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #00884f;
+        }
+
+        img {
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .status {
+            margin-top: 15px;
+            color: green;
+            font-weight: bold;
+        }
+
+        #fallAlert {
+            display:none;
+            position:fixed;
+            top:20px;
+            left:50%;
+            transform:translateX(-50%);
+            background:red;
+            color:white;
+            padding:20px;
+            border-radius:15px;
+            font-size:24px;
+            font-weight:bold;
+            z-index:9999;
+            box-shadow:0 0 20px black;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="box">
+
+    <h2>Elder Care WiFi Setup</h2>
+
+    <form method="POST" action="/connect">
+
+        <select name="ssid">
+
+            {% for wifi in wifi_list %}
+
+                <option value="{{ wifi[0] }}">
+                    {{ wifi[0] }} ({{ wifi[1] }}%)
+                </option>
+
+            {% endfor %}
+
+        </select>
+
+        <input type="password"
+               name="password"
+               placeholder="WiFi Password">
+
+        <button type="submit">
+            Connect WiFi
+        </button>
+
+    </form>
+
+    <div class="status">
+        Current WiFi: {{ current_wifi }}
+    </div>
+
+    <h3>Live Camera</h3>
+
+    <img src="/video_feed">
+
+    <h3>Custom Alert Sound</h3>
+
+    <input type="file"
+           id="soundUpload"
+           accept="audio/*">
+
+    <button onclick="saveSound()">
+        Save Alert Sound
+    </button>
+
+    <button onclick="testSound()">
+        Test Alert Sound
+    </button>
+
+</div>
+
+
+<!-- ALERT POPUP -->
+<div id="fallAlert">
+    ⚠ FALL DETECTED!
+</div>
+
+
+<script>
+
+let alertAudio = null;
+
+
+// =========================
+// LOAD SAVED SOUND
+// =========================
+function loadSavedSound() {
+
+    const saved =
+        localStorage.getItem("customAlertSound");
+
+    if (saved) {
+
+        alertAudio = new Audio(saved);
+
+        console.log("Custom sound loaded");
+    }
+}
+
+
+// =========================
+// SAVE SOUND
+// =========================
+function saveSound() {
+
+    const file =
+        document.getElementById("soundUpload").files[0];
+
+    if (!file) {
+
+        alert("Select MP3/WAV file");
+
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+        localStorage.setItem(
+            "customAlertSound",
+            e.target.result
+        );
+
+        alertAudio =
+            new Audio(e.target.result);
+
+        alert("Sound saved!");
+    };
+
+    reader.readAsDataURL(file);
+}
+
+
+// =========================
+// TEST SOUND
+// =========================
+function testSound() {
+
+    if (!alertAudio) {
+
+        alert("No sound uploaded");
+
+        return;
+    }
+
+    alertAudio.currentTime = 0;
+
+    alertAudio.play()
+        .catch(err => console.log(err));
+}
+
+
+// =========================
+// SHOW ALERT
+// =========================
+function showFallAlert(message) {
+
+    const box =
+        document.getElementById("fallAlert");
+
+    box.innerHTML = message;
+
+    box.style.display = "block";
+
+
+    // phone vibration
+    if (navigator.vibrate) {
+
+        navigator.vibrate(
+            [1000, 500, 1000]
+        );
+    }
+
+
+    // play uploaded sound
+    if (alertAudio) {
+
+        alertAudio.currentTime = 0;
+
+        alertAudio.play()
+            .catch(err => console.log(err));
+    }
+
+
+    // auto hide
+    setTimeout(() => {
+
+        box.style.display = "none";
+
+    }, 5000);
+}
+
+
+// =========================
+// CHECK ALERTS
+// =========================
+async function checkAlerts() {
+
+    try {
+
+        const response =
+            await fetch('/push_alert');
+
+        const data =
+            await response.json();
+
+        if (data.alert &&
+            data.alert !== "") {
+
+            showFallAlert(data.alert);
+        }
+
+    } catch(err) {
+
+        console.log(err);
+    }
+}
+
+
+// =========================
+// INITIALIZE
+// =========================
+window.onload = function() {
+
+    loadSavedSound();
+
+    // unlock audio after first tap
+    document.body.addEventListener(
+        "click",
+        () => {
+
+            if (alertAudio) {
+
+                alertAudio.play()
+                    .then(() => {
+
+                        alertAudio.pause();
+
+                        alertAudio.currentTime = 0;
+
+                    })
+                    .catch(err => console.log(err));
+            }
+
+        },
+        { once:true }
+    );
+
+    // poll every second
+    setInterval(checkAlerts, 1000);
+};
+
+</script>
+
+</body>
+</html>

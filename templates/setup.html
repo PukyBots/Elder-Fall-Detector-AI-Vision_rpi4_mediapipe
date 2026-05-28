@@ -1,0 +1,19 @@
+<h2>Connect Raspberry Pi to WiFi</h2>
+
+<input id="ssid" placeholder="WiFi SSID"><br>
+<input id="password" placeholder="Password" type="password"><br>
+
+<button onclick="connect()">Connect</button>
+
+<script>
+function connect() {
+    fetch("/wifi", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            ssid: document.getElementById("ssid").value,
+            password: document.getElementById("password").value
+        })
+    }).then(r => r.json()).then(alert);
+}
+</script>

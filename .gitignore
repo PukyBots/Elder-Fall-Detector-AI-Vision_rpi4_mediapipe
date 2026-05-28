@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+venv/
+.env/
+
+# VS Code
+.vscode/
+
+# Flask
+instance/
+*.sqlite3
+
+# Logs
+*.log
+
+# Linux temp
+*.swp
+*.swo
+*~
+
+# Media / cache
+*.mp4
+*.avi
+*.jpg
+*.png
+
+# ngrok
+ngrok.log
+
+# System
+.DS_Store
+Thumbs.db
+
+# TensorFlow Lite cache
+*.tflite
+
+# Build folders
+build/
+dist/
+
+# Environment files
+.env
+
+# Secrets
+*.pem
+*.key
