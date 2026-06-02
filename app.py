@@ -1,23 +1,71 @@
-from flask import Flask, render_template, request, Response
+from flask import Flask, render_template, request, Response, jsonify
 import subprocess
 import cv2
 import time
 import threading
-import fall_detect
-from flask import jsonify
+import os
 
+import fall_detect
 import shared_state
 
 app = Flask(__name__)
 
-# ==========================
-# WIFI FUNCTIONS
-# ==========================
+# ==================================================
+# AUDIO
+# ==================================================
 
-def scan_wifi():
+def play_connected_sound_wifi():
 
     try:
 
+        mp3 = os.path.join(
+            os.path.dirname(__file__),
+            "connect.mp3"
+        )
+
+        print("PLAYING WIFI CONNECT SOUND")
+        print("FILE:", mp3)
+
+        subprocess.Popen(
+            ["mpg123", mp3],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+    except Exception as e:
+
+        print("Audio error:", e)
+
+
+def play_connected_sound_ap():
+
+    try:
+
+        mp3 = os.path.join(
+            os.path.dirname(__file__),
+            "connect_ap.mp3"
+        )
+
+        print("PLAYING AP SOUND")
+        print("FILE:", mp3)
+
+        subprocess.Popen(
+            ["mpg123", mp3],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+    except Exception as e:
+
+        print("Audio error:", e)
+
+
+# ==================================================
+# WIFI FUNCTIONS
+# ==================================================
+
+def scan_wifi():
+    try:
         subprocess.run(
             ["nmcli", "device", "set", "wlan0", "managed", "yes"],
             capture_output=True
@@ -30,126 +78,141 @@ def scan_wifi():
 
         time.sleep(3)
 
-        result = subprocess.check_output(
-            [
-                "nmcli",
-                "-t",
-                "-f",
-                "SSID,SIGNAL",
-                "device",
-                "wifi",
-                "list"
-            ]
-        ).decode()
+        result = subprocess.check_output([
+            "nmcli",
+            "-t",
+            "-f",
+            "SSID,SIGNAL",
+            "device",
+            "wifi",
+            "list"
+        ]).decode()
 
         networks = []
-
         seen = set()
 
-        for line in result.split("\n"):
+        for line in result.splitlines():
 
-            if ":" in line:
+            parts = line.rsplit(":", 1)
 
-                parts = line.split(":")
+            if len(parts) != 2:
+                continue
 
-                if len(parts) >= 2:
+            ssid = parts[0].strip()
+            signal = parts[1].strip()
 
-                    ssid = parts[0].strip()
-                    signal = parts[1].strip()
+            if (
+                ssid
+                and ssid not in seen
+                and ssid != "ElderCare"
+            ):
+                seen.add(ssid)
+                networks.append((ssid, signal))
 
-                    if ssid != "" and ssid not in seen:
-
-                        seen.add(ssid)
-
-                        networks.append(
-                            (ssid, signal)
-                        )
-
-        print(networks)
+        print("Scanned networks:", networks)
 
         return networks
 
     except Exception as e:
-
         print("WiFi Scan Error:", e)
-
         return []
-        
+
 
 def connect_wifi(ssid, password):
 
     try:
 
-        print(f"Connecting to WiFi: {ssid}")
+        print(f"Attempting connection to: {ssid}")
 
-        # STOP hotspot completely
-        subprocess.run(
-            ['nmcli', 'connection', 'down', 'Hotspot'],
-            capture_output=True
+        r = subprocess.run(
+            ["sudo", "nmcli", "connection", "down", "ElderCare_AP"],
+            capture_output=True,
+            text=True
         )
 
-        subprocess.run(
-            ['nmcli', 'connection', 'delete', 'Hotspot'],
-            capture_output=True
-        )
+        print("DOWN STDOUT:", r.stdout)
+        print("DOWN STDERR:", r.stderr)
 
-        time.sleep(3)
+        time.sleep(5)
 
-        # enable normal wifi mode
-        subprocess.run(
-            ['nmcli', 'radio', 'wifi', 'on'],
-            capture_output=True
-        )
-
-        time.sleep(2)
-
-        # connect to wifi
-        result = subprocess.run(
+        r = subprocess.run(
             [
-                'nmcli',
-                'device',
-                'wifi',
-                'connect',
+                "sudo",
+                "nmcli",
+                "device",
+                "wifi",
+                "connect",
                 ssid,
-                'password',
+                "password",
                 password
             ],
             capture_output=True,
             text=True
         )
 
-        print(result.stdout)
-        print(result.stderr)
+        print("CONNECT STDOUT:", r.stdout)
+        print("CONNECT STDERR:", r.stderr)
+        print("RETURN CODE:", r.returncode)
 
-        return result.returncode == 0
+        time.sleep(15)
+
+        current_ssid = subprocess.getoutput(
+            "iwgetid -r"
+        ).strip()
+
+        ip_addr = subprocess.getoutput(
+            "hostname -I | awk '{print $1}'"
+        ).strip()
+
+        print("CURRENT SSID:", current_ssid)
+        print("CURRENT IP:", ip_addr)
+
+        if current_ssid == ssid and ip_addr:
+
+            print("WiFi Connected Successfully")
+
+            threading.Thread(
+                target=play_connected_sound_wifi,
+                daemon=True
+            ).start()
+
+            return True
+
+        print("Connection verification failed")
+
+        subprocess.run(
+            ["sudo", "nmcli", "connection", "up", "ElderCare_AP"]
+        )
+
+        return False
 
     except Exception as e:
 
-        print("WiFi Connect Error:", e)
+        print("WiFi Error:", e)
+
+        subprocess.run(
+            ["sudo", "nmcli", "connection", "up", "ElderCare_AP"]
+        )
 
         return False
-        
 
 def get_current_wifi():
 
     try:
 
-        result = subprocess.check_output(
-            [
-                'nmcli',
-                '-t',
-                '-f',
-                'ACTIVE,SSID',
-                'device',
-                'wifi'
-            ]
-        ).decode()
+        ssid = subprocess.getoutput(
+            "iwgetid -r"
+        ).strip()
 
-        for line in result.split('\n'):
+        if ssid:
+            return ssid
 
-            if line.startswith("yes:"):
+        active = subprocess.getoutput(
+            "nmcli -t -f NAME connection show --active"
+        )
 
-                return line.split(":")[1]
+        if "ElderCare_AP" in active:
+            return "Hotspot Mode (ElderCare)"
 
         return "Not Connected"
 
@@ -159,9 +222,9 @@ def get_current_wifi():
         return "Unknown"
 
 
-# ==========================
+# ==================================================
 # CAMERA STREAM
-# ==========================
+# ==================================================
 
 def generate_frames():
 
@@ -169,15 +232,16 @@ def generate_frames():
 
         try:
 
-            # get frame from fall detector
             if fall_detect.output_frame is None:
-
                 time.sleep(0.03)
                 continue
 
             frame = fall_detect.output_frame.copy()
 
-            ret, buffer = cv2.imencode('.jpg', frame)
+            ret, buffer = cv2.imencode(
+                '.jpg',
+                frame
+            )
 
             if not ret:
                 continue
@@ -186,8 +250,8 @@ def generate_frames():
 
             yield (
                 b'--frame\r\n'
-                b'Content-Type: image/jpeg\r\n\r\n' +
-                frame_bytes +
+                b'Content-Type: image/jpeg\r\n\r\n'
+                + frame_bytes +
                 b'\r\n'
             )
 
@@ -197,15 +261,14 @@ def generate_frames():
             time.sleep(1)
 
 
-# ==========================
+# ==================================================
 # ROUTES
-# ==========================
+# ==================================================
 
 @app.route('/')
 def index():
 
     wifi_list = scan_wifi()
-
     current_wifi = get_current_wifi()
 
     return render_template(
@@ -218,23 +281,16 @@ def index():
 @app.route('/connect', methods=['POST'])
 def connect():
 
-    ssid = request.form['ssid']
-    password = request.form['password']
+    ssid = request.form['ssid'].strip()
+    password = request.form['password'].strip()
 
-    # immediate response page
     connecting_page = f"""
     <!DOCTYPE html>
     <html>
-
     <head>
-    
-        <meta http-equiv="refresh"
-            content="10;url=http://raspberrypi.local:5000">
-
         <title>Connecting...</title>
-
+        <meta http-equiv="refresh" content="20;url=/" />
         <style>
-
             body {{
                 font-family: Arial;
                 text-align: center;
@@ -254,11 +310,8 @@ def connect():
             h1 {{
                 color: #00ff88;
             }}
-
         </style>
-
     </head>
-
     <body>
 
         <div class="box">
@@ -267,36 +320,31 @@ def connect():
 
             <h2>{ssid}</h2>
 
-            <p>Please wait 10 seconds...</p>
+            <p>Please wait 20 seconds...</p>
 
             <p>
-            Raspberry Pi is trying to connect.
-            Your phone may disconnect from hotspot temporarily.
+            Your device will disconnect
+            from "ElderCare" temporarily.
             </p>
 
             <p>
-            After connection:
+            If successful, connect your laptop
+            to <b>{ssid}</b> and refresh.
             </p>
 
-            <h3>
-            http://raspberrypi.local:5000
-            </h3>
-
-
-        
+            <p>
+            If unsuccessful, reconnect to
+            <b>ElderCare</b> hotspot.
+            </p>
 
         </div>
 
     </body>
-
     </html>
     """
 
-    # start connection in background
     def do_connect():
-
-        time.sleep(2)
-
+        time.sleep(1)
         connect_wifi(ssid, password)
 
     threading.Thread(
@@ -306,7 +354,6 @@ def connect():
 
     return connecting_page
 
-    
 
 @app.route('/video_feed')
 def video_feed():
@@ -316,24 +363,24 @@ def video_feed():
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 
+
 @app.route('/push_alert')
 def push_alert():
 
     msg = shared_state.latest_alert
-
     shared_state.latest_alert = ""
 
     return jsonify({
         "alert": msg
     })
 
-# ==========================
+
+# ==================================================
 # MAIN
-# ==========================
+# ==================================================
 
 if __name__ == '__main__':
 
-    # start fall detector thread
     detector_thread = threading.Thread(
         target=fall_detect.run_detector,
         daemon=True
@@ -341,10 +388,8 @@ if __name__ == '__main__':
 
     detector_thread.start()
 
-    # start flask app
     app.run(
         host='0.0.0.0',
         port=5000,
         threaded=True
     )
-

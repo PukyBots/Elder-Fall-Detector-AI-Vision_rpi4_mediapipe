@@ -96,15 +96,14 @@ def send_alert(reason="Emergency"):
 
     print(f"[ALERT] {reason}")
 
+    # --> CRITICAL ADDITION: Update shared state so Flask web UI sees the alert!
+    shared_state.latest_alert = reason
+
     # ntfy notification
     def _send():
-
         for topic in topics:
-
             try:
-
                 url = f"https://ntfy.sh/{topic}"
-
                 req = urllib.request.Request(
                     url,
                     data=reason.encode(),
@@ -114,36 +113,35 @@ def send_alert(reason="Emergency"):
                         "Tags": "warning",
                     },
                 )
-
                 urllib.request.urlopen(req, timeout=5)
-
                 print(f"[NTFY] Alert sent to {topic}")
 
             except Exception as e:
-
                 print(f"[NTFY ERROR] {topic}:", e)
 
     threading.Thread(target=_send, daemon=True).start()
 
-
     # play alarm using VLC
     try:
-
         subprocess.Popen(
-            [
-                "cvlc",
-                "--play-and-exit",
-                ALARM_WAV
-            ],
+            ["cvlc", "--play-and-exit", ALARM_WAV],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-
         print("[ALARM] Playing alarm.wav")
-
     except Exception as e:
         print("[ALARM ERROR]", e)
+        
 
+def internet_available():
+    try:
+        subprocess.check_output(
+            ["ping", "-c", "1", "8.8.8.8"],
+            timeout=3
+        )
+        return True
+    except:
+        return False
 
 
 def voice_listener():
@@ -172,10 +170,15 @@ def voice_listener():
                     phrase_time_limit=3
                 )
 
-                text = recognizer.recognize_google(audio)
-                text = text.lower()
+                text = ""
 
-                print("[VOICE] Heard:", text)
+                if internet_available():
+                    text = recognizer.recognize_google(audio)
+                else:
+                    print("No internet. Skipping speech recognition.")
+
+                if text:
+                    print(text)
 
                 keywords = [
                     "help",
@@ -381,6 +384,28 @@ def draw_skeleton(frame, keypoints, confs, color):
 
 
 # ==========================
+# CAMERA INITIALIZATION (Moved outside of Main)
+# ==========================
+
+def initialize_camera():
+    # Try indices 0, 1, 2, and 3
+    for i in range(4):
+        cap = cv2.VideoCapture(i)
+        
+        # Check if it opened AND can actually grab a frame
+        if cap.isOpened():
+            ret, frame = cap.read()
+            if ret:
+                print(f"Camera successfully connected on index {i}")
+                return cap
+            else:
+                cap.release()
+                
+    print("Error: Could not find any working camera.")
+    return None
+
+
+# ==========================
 # MAIN
 # ==========================
 
@@ -390,19 +415,14 @@ def run_detector():
     global voice_triggered, voice_trigger_time
 
     print("Loading MoveNet...")
-
     model = MoveNet("movenet_lightning.tflite")
-
     detector = FallDetector()
 
-    # camera
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        cap = cv2.VideoCapture(1)
-
-    if not cap.isOpened():
-        print("Camera not found")
+    # Fixed Indentation & camera setup
+    cap = initialize_camera()
+    
+    if cap is None:
+        print("Exiting detector: No camera available.")
         return
 
     # resolution
@@ -414,7 +434,6 @@ def run_detector():
         target=voice_listener,
         daemon=True
     )
-
     voice_thread.start()
 
     print("Starting fall detector...")
@@ -461,9 +480,7 @@ def run_detector():
 
         # voice warning
         if voice_triggered:
-
             if time.time() - voice_trigger_time < 5:
-
                 cv2.putText(
                     frame,
                     "VOICE HELP DETECTED!",
@@ -473,7 +490,6 @@ def run_detector():
                     (0, 0, 255),
                     3
                 )
-
             else:
                 voice_triggered = False
 

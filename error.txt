@@ -1,13 +1,47 @@
-# Add cloudflare gpg key
-sudo mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
-
-# Add this repo to your apt repositories
-echo 'deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
-
-# install cloudflared
-sudo apt-get update && sudo apt-get install cloudflared
-
-
-sudo cloudflared service install eyJhIjoiYjliMjBlOWRhNDM4MDRhZTc5NWRmNWMyNzQ1NWJjOGQiLCJ0IjoiNmU0YTE1ZTItZWJmZi00MTQyLTkzZGEtMDU0OWUxMTY0M2M4IiwicyI6IlpERXhPVE5tTm1NdFlXRTFOQzAwTnpBd0xUZ3lOell0Wm1VeU1tSTVOVEF3WTJFeSJ9
-
+raspberry@pi:~ $ journalctl -u fall-detector.service -f
+May 31 22:07:37 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:37] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:07:38 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:38] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:07:39 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:39] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:07:39 pi bash[7499]: ping: connect: Network is unreachable
+May 31 22:07:39 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:07:39 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:07:40 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:40] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:07:41 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:41] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:07:41 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:07:41] "POST /connect HTTP/1.1" 200 -
+May 31 22:07:42 pi bash[1504]: Stopping hotspot
+May 31 22:07:43 pi bash[7523]: ping: connect: Network is unreachable
+May 31 22:07:43 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:07:43 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:07:48 pi bash[7537]: ping: connect: Network is unreachable
+May 31 22:07:48 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:07:48 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:07:51 pi bash[1504]: Connecting to: pg
+May 31 22:07:51 pi bash[1504]: Error: Failed to add/activate new connection: Not authorized to control networking.
+May 31 22:08:02 pi bash[7590]: ping: connect: Network is unreachable
+May 31 22:08:02 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:08:02 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:08:05 pi bash[1504]: Scanned networks: [('TP-Link_48A8', '100'), ('TP-Link_48A8_5G', '100'), ('pg', '89'), ('Sahyadri_Net', '85'), ('iPhone', '52'), ('TCE', '20')]
+May 31 22:08:05 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:05] "GET / HTTP/1.1" 200 -
+May 31 22:08:06 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:06] "GET /video_feed HTTP/1.1" 200 -
+May 31 22:08:06 pi bash[1504]: SSID:
+May 31 22:08:06 pi bash[1504]: IP: 10.3.141.1
+May 31 22:08:06 pi bash[1504]: Connection failed
+May 31 22:08:07 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:07] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:08 pi bash[7632]: ping: connect: Network is unreachable
+May 31 22:08:08 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:08:08 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:08:08 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:08] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:09 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:09] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:10 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:10] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:11 pi bash[7643]: ping: connect: Network is unreachable
+May 31 22:08:11 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:08:11 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:08:11 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:11] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:12 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:12] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:13 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:13] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:14 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:14] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:15 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:15] "GET /push_alert HTTP/1.1" 200 -
+May 31 22:08:16 pi bash[7671]: ping: connect: Network is unreachable
+May 31 22:08:16 pi bash[1504]: No internet. Skipping speech recognition.
+May 31 22:08:16 pi bash[1504]: [VOICE ERROR] cannot access local variable 'text' where it is not associated with a value
+May 31 22:08:16 pi bash[1504]: 10.42.0.80 - - [31/May/2026 22:08:16] "GET /push_alert HTTP/1.1" 200 -

@@ -1,85 +1,58 @@
 #!/bin/bash
 
-echo "Waiting for WiFi startup..."
+echo "=================================="
+echo "Starting ElderCare Network Manager"
+echo "=================================="
 
-sleep 20
+sleep 10
 
-# --------------------------------
-# TRY CONNECTING TO SAVED WIFI
-# --------------------------------
-echo "Checking saved WiFi connection..."
+echo "Waiting for NetworkManager..."
+sleep 5
 
 CONNECTED=0
 
-for i in {1..15}
+echo "Checking for saved WiFi..."
+
+for i in {1..5}
 do
+    ACTIVE_WIFI=$(nmcli -t -f DEVICE,STATE device | grep "^wlan0:connected")
 
-    WIFI=$(nmcli -t -f DEVICE,STATE dev status | grep '^wlan0:connected')
-
-    if [ ! -z "$WIFI" ]; then
-
+    if [ ! -z "$ACTIVE_WIFI" ]
+    then
+        SSID=$(iwgetid -r)
+        echo "Connected to saved WiFi: $SSID"
         CONNECTED=1
-
-        echo "Saved WiFi connected"
-
         break
     fi
 
-    echo "Waiting for WiFi... ($i)"
-
-    sleep 2
-
+    echo "Attempt $i/5"
+    sleep 1
 done
 
+if [ $CONNECTED -eq 0 ]
+then
 
-# --------------------------------
-# START HOTSPOT ONLY IF NO WIFI
-# --------------------------------
-if [ $CONNECTED -eq 0 ]; then
+    echo "No WiFi connection found"
+    echo "Starting ElderCare AP"
 
-    echo "No saved WiFi found"
+    sudo nmcli connection up ElderCare_AP
 
-    echo "Starting hotspot..."
+    RET=$?
 
-    nmcli radio wifi on
-    sleep 3
+    echo "Hotspot return code: $RET"
 
-
-    # disconnect wlan
-    nmcli dev disconnect wlan0 2>/dev/null
-
-    sleep 2
-
-    # delete old hotspot
-    nmcli connection delete Hotspot 2>/dev/null
-
-    sleep 1
-
-    # start hotspot
-    nmcli dev wifi hotspot \
-        ifname wlan0 \
-        ssid ElderCare \
-        password 12345678
-
-    if [ $? -eq 0 ]; then
-
-        echo "Hotspot started"
+    if [ $RET -eq 0 ]
+    then
+        echo "Hotspot started successfully"
+        mpg123 /home/raspberry/elder_care/connect_ap.mp3 &
 
     else
-
         echo "Hotspot failed"
     fi
-
-else
-
-    echo "Using saved WiFi"
-
 fi
 
+echo "Starting Flask Application"
 
-# --------------------------------
-# START FLASK APP
-# --------------------------------
 cd /home/raspberry/elder_care
 
-/home/raspberry/elder_care/venv/bin/python app.py
+exec /home/raspberry/elder_care/venv/bin/python app.py
